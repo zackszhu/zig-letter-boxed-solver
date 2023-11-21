@@ -1,7 +1,6 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 
-const LETTER_LIST = "JCPAOEIRHFBT";
 const MAX_LENGTH = (1 << 12) * 12;
 
 const Entry = struct {
@@ -40,12 +39,12 @@ fn entriesCleanUp(entries: []ArrayList(Entry)) void {
     }
 }
 
-fn getEntryFrom(word: []u8) !?Entry {
+fn getEntryFrom(word: []u8, letterList: []u8) !?Entry {
     var result: u32 = 0;
     var previousIndexOpt: ?u32 = null;
     for (word, 0..) |_, index| {
         const letter = word[index .. index + 1];
-        const letterIndexOpt = std.mem.indexOf(u8, LETTER_LIST, letter);
+        const letterIndexOpt = std.mem.indexOf(u8, letterList, letter);
         if (letterIndexOpt == null) {
             return null;
         }
@@ -55,8 +54,8 @@ fn getEntryFrom(word: []u8) !?Entry {
         result |= std.math.shl(u32, 1, letterIndexOpt.?);
         previousIndexOpt = @intCast(letterIndexOpt.?);
     }
-    const firstLetterIndex: u8 = @intCast(std.mem.indexOf(u8, LETTER_LIST, word[0..1]).?);
-    const lastLetterIndex: u8 = @intCast(std.mem.indexOf(u8, LETTER_LIST, word[word.len - 1 .. word.len]).?);
+    const firstLetterIndex: u8 = @intCast(std.mem.indexOf(u8, letterList, word[0..1]).?);
+    const lastLetterIndex: u8 = @intCast(std.mem.indexOf(u8, letterList, word[word.len - 1 .. word.len]).?);
     const entry = Entry{
         .word = try std.mem.Allocator.dupe(std.heap.page_allocator, u8, word),
         .mask = result,
@@ -130,6 +129,10 @@ fn getAnswer(shortestPath: []ShortestPathRecord) ?ShortestPathRecord {
 }
 
 pub fn main() !void {
+    const stdin = std.io.getStdIn().reader();
+
+    const letterList = try stdin.readUntilDelimiterAlloc(std.heap.page_allocator, '\n', 13);
+
     // read lines from dictionary.txt
     var f = try std.fs.cwd().openFile("../dictionary.txt", .{});
     defer f.close();
@@ -162,7 +165,7 @@ pub fn main() !void {
             continue;
         }
 
-        const entryOpt = try getEntryFrom(word);
+        const entryOpt = try getEntryFrom(word, letterList);
         if (entryOpt == null) {
             continue;
         }
