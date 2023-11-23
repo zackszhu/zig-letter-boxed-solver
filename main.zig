@@ -4,20 +4,20 @@ const ArrayList = std.ArrayList;
 const MAX_LENGTH = (1 << 12) * 12;
 
 const Entry = struct {
-    word: []u8,
+    word: []const u8,
     mask: u32,
     startsWith: u8,
     endsWith: u8,
 };
 
 const ShortestPathRecord = struct {
-    words: ArrayList([]u8),
-    newWord: ?[]u8,
+    words: ArrayList([]const u8),
+    newWord: ?[]const u8,
     length: u8,
 
     fn init() ShortestPathRecord {
         return ShortestPathRecord{
-            .words = ArrayList([]u8).init(std.heap.page_allocator),
+            .words = ArrayList([]const u8).init(std.heap.page_allocator),
             .newWord = null,
             .length = 0,
         };
@@ -39,7 +39,7 @@ fn entriesCleanUp(entries: []ArrayList(Entry)) void {
     }
 }
 
-fn getEntryFrom(word: []u8, letterList: []u8) !?Entry {
+fn getEntryFrom(word: []const u8, letterList: []const u8) !?Entry {
     var result: u32 = 0;
     var previousIndexOpt: ?u32 = null;
     for (word, 0..) |_, index| {
@@ -57,7 +57,7 @@ fn getEntryFrom(word: []u8, letterList: []u8) !?Entry {
     const firstLetterIndex: u8 = @intCast(std.mem.indexOf(u8, letterList, word[0..1]).?);
     const lastLetterIndex: u8 = @intCast(std.mem.indexOf(u8, letterList, word[word.len - 1 .. word.len]).?);
     const entry = Entry{
-        .word = try std.mem.Allocator.dupe(std.heap.page_allocator, u8, word),
+        .word = word,
         .mask = result,
         .startsWith = firstLetterIndex,
         .endsWith = lastLetterIndex,
@@ -128,19 +128,11 @@ fn getAnswer(shortestPath: []ShortestPathRecord) ?ShortestPathRecord {
     return null;
 }
 
+const dictionaryFile = @embedFile("dictionary.txt");
+
 pub fn main() !void {
     const stdin = std.io.getStdIn().reader();
-
-    const letterList = try stdin.readUntilDelimiterAlloc(std.heap.page_allocator, '\n', 13);
-
-    // read lines from dictionary.txt
-    var f = try std.fs.cwd().openFile("../dictionary.txt", .{});
-    defer f.close();
-    var bufferReader = std.io.bufferedReader(f.reader());
-    var inStream = bufferReader.reader();
-    const writer = std.io.getStdOut().writer();
-
-    var buf: [1024]u8 = undefined;
+    const stdout = std.io.getStdOut().writer();
 
     var shortestPaths: [MAX_LENGTH]ShortestPathRecord = undefined;
     for (&shortestPaths) |*path| {
@@ -153,14 +145,21 @@ pub fn main() !void {
     }
     defer entriesCleanUp(entries[0..]);
 
+    const args = std.os.argv;
+    var letterList: []const u8 = undefined;
+    if (args.len == 2) {
+        letterList.ptr = args[1];
+        letterList.len = 12;
+    } else {
+        try stdout.print("Please input letter list: ", .{});
+        letterList = try stdin.readUntilDelimiterAlloc(std.heap.page_allocator, '\n', 13);
+    }
+
     // read words from dictionary.txt and encode words
-    try writer.print("Pre-processing dictionary...\n", .{});
-    while (true) {
-        const wordOpt = try inStream.readUntilDelimiterOrEof(&buf, '\n');
-        if (wordOpt == null) {
-            break;
-        }
-        const word = wordOpt.?;
+    try stdout.print("Pre-processing dictionary...\n", .{});
+
+    comptime var dictioanryLineIterator = std.mem.splitScalar(u8, dictionaryFile, '\n');
+    while (dictioanryLineIterator.next()) |word| {
         if (word.len <= 2) {
             continue;
         }
@@ -176,6 +175,6 @@ pub fn main() !void {
     }
 
     // find shortest path and print
-    try writer.print("Finding shortest path...\n", .{});
+    try stdout.print("Finding shortest path...\n", .{});
     try findShortestPath(&shortestPaths, &entries);
 }
