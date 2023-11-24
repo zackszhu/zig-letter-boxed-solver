@@ -158,7 +158,7 @@ pub fn main() !void {
     // read words from dictionary.txt and encode words
     try stdout.print("Pre-processing dictionary...\n", .{});
 
-    comptime var dictioanryLineIterator = std.mem.splitScalar(u8, dictionaryFile, '\n');
+    var dictioanryLineIterator = std.mem.splitScalar(u8, dictionaryFile, '\n');
     while (dictioanryLineIterator.next()) |word| {
         if (word.len <= 2) {
             continue;
